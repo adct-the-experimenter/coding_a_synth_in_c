@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include "minimal_windows.h"
-#include "synth_platform.h"
-
 typedef MIDIINCAPS MidiDeviceInfo;
 typedef HMIDIIN MidiHandle;
 
@@ -11,70 +7,46 @@ typedef HMIDIIN MidiHandle;
 #define MAX_MIDI_VELOCITY 127.f
 #define POLYPHONIC_COUNT 16
 
-// @midi
-typedef union MidiMessage
-{
-    u32 message;
-    u8 data[4];
+typedef union MidiMessage {
+    unsigned int message;
+    unsigned char data[4];
 } MidiMessage;
 
-// @midi
-typedef struct MidiKey
-{
-    u8 is_on;
-    u8 note;
-    f64 velocity_ratio;
+typedef struct MidiKey {
+    unsigned char is_on;
+    unsigned char note;
+    double velocity_ratio;
 } MidiKey;
 
-// @midi
-typedef struct MidiKeyArray
-{
+typedef struct MidiKeyArray {
     MidiKey data[POLYPHONIC_COUNT];
-    u32 count;
+    int count;
 } MidiKeyArray;
 
-// @midi
-internal void CALLBACK 
-SynthMidiHandler(MidiHandle midi, u32 msg_type, u32 *user_data, u32 param1, u32 param2)
-{
-    switch(msg_type)
-    {
+static void CALLBACK SynthMidiHandler(MidiHandle midi, unsigned int msg_type, unsigned int *user_data, unsigned int param1, unsigned int param2) {
+    switch(msg_type) {
         case MIM_DATA: {
             MidiKeyArray *keys = (MidiKeyArray*)user_data;
             MidiMessage msg = {param1};
-            u8 midi_event = msg.data[0];
-            u8 midi_note = msg.data[1];
-            u8 midi_velocity = msg.data[2];
-            u32 midi_timestamp = param2;
-            
-            if (midi_event == KEY_ON)
-            {
+            unsigned char midi_event = msg.data[0];
+            unsigned char midi_note = msg.data[1];
+            unsigned char midi_velocity = msg.data[2];
+            unsigned int midi_timestamp = param2;
+            if (midi_event == KEY_ON) {
                 MidiKey *key = 0;
-                for (u32 i = 0; i < keys->count; i++)
-                {
-                    if (keys->data[i].is_on == 0)
-                    {
-                        key = keys->data + i;
-                        break;
-                    }
+                for (int i = 0; i < keys->count; i++) {
+                    if (keys->data[i].is_on == 0) { key = keys->data + i; break; }
                 }
-                if (key)
-                {
+                if (key) {
                     key->is_on = 1;
                     key->note = midi_note;
-                    key->velocity_ratio = (f32)midi_velocity / MAX_MIDI_VELOCITY;
+                    key->velocity_ratio = (float)midi_velocity / MAX_MIDI_VELOCITY;
                 }
             }
-            else if (midi_event == KEY_OFF)
-            {
+            else if (midi_event == KEY_OFF) {
                 MidiKey *key = 0;
-                for (u32 i = 0; i < keys->count; i++)
-                {
-                    if (keys->data[i].is_on && keys->data[i].note == midi_note)
-                    {
-                        keys->data[i].is_on = false;
-                        break;
-                    }
+                for (int i = 0; i < keys->count; i++) {
+                    if (keys->data[i].is_on && keys->data[i].note == midi_note) { keys->data[i].is_on = false; break; }
                 }
             }
             break;
@@ -82,60 +54,29 @@ SynthMidiHandler(MidiHandle midi, u32 msg_type, u32 *user_data, u32 param1, u32 
     }
 }
 
-MidiHandle
-SynthMidiInit(u32 selected_device_id, MidiKeyArray *keys)
-{
-    u32 num_midi_devices = midiInGetNumDevs();
-    for(u32 device_id = 0; device_id < num_midi_devices; device_id++)
-    {
+MidiHandle SynthMidiInit(int selected_device_id, MidiKeyArray *keys) {
+    int num_midi_devices = midiInGetNumDevs();
+    for(int device_id = 0; device_id < num_midi_devices; device_id++) {
         MidiDeviceInfo device_info;
-        u32 result = midiInGetDevCaps(device_id,
-                                      &device_info,
-                                      sizeof(MidiDeviceInfo));
-        if (result != MMSYSERR_NOERROR)
-        {
-            printf("Could not get MIDI device info\n");
-            return 0;
-        }
-        printf("MIDI device: %s\n", device_info.szPname);
+        unsigned int result = midiInGetDevCaps(device_id, &device_info, sizeof(MidiDeviceInfo));
+        if (result != MMSYSERR_NOERROR) { printf("Could not get MIDI device info\n"); return 0; }
+        printf("%i: MIDI device: %s\n", device_id, device_info.szPname);
     }
-    
+    printf("Enter device id (0 - %i):", (num_midi_devices - 1));
+    scanf("%d", &selected_device_id);
+    printf("\n\n");
     MidiHandle midi;
-    u32 result = midiInOpen(&midi,
-                            selected_device_id,
-                            (DWORD_PTR)SynthMidiHandler,
-                            (DWORD_PTR)keys,
-                            CALLBACK_FUNCTION);
-    if (result != MMSYSERR_NOERROR)
-    {
-        printf("Could not open MIDI device %d.\n", selected_device_id);
-        return 0;
-    }
-    
+    unsigned int result = midiInOpen(&midi, selected_device_id, (DWORD_PTR)SynthMidiHandler, (DWORD_PTR)keys, CALLBACK_FUNCTION);
+    if (result != MMSYSERR_NOERROR) { printf("Could not open MIDI device %d.\n", selected_device_id); return 0; }
     result = midiInStart(midi);
-    if (result != MMSYSERR_NOERROR)
-    {
-        printf("Could not start MIDI device %d.\n", selected_device_id);
-        return 0;
-    }
-    
+    if (result != MMSYSERR_NOERROR) { printf("Could not start MIDI device %d.\n", selected_device_id); return 0; }    
     return midi;
 }
 
-void 
-SynthMidiStop(MidiHandle midi)
-{
-    u32 result = midiInStop(midi);
-    if (result != MMSYSERR_NOERROR)
-    {
-        printf("Could not stop MIDI device.\n");
-        return;
-    }
+void SynthMidiStop(MidiHandle midi) {
+    unsigned int result = midiInStop(midi);
+    if (result != MMSYSERR_NOERROR) { printf("Could not stop MIDI device.\n"); return; }
     
     result = midiInClose(midi);
-    if (result != MMSYSERR_NOERROR)
-    {
-        printf("Could not close MIDI device.\n");
-        return;
-    }
+    if (result != MMSYSERR_NOERROR) { printf("Could not close MIDI device.\n"); return; }
 }
