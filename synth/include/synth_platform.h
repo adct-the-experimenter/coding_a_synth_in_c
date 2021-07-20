@@ -1,24 +1,4 @@
-/* date = March 25th 2021 0:38 pm */
-
-#ifndef SYNTH_PLATFORM_H
-#define SYNTH_PLATFORM_H
-
-#include <stdint.h>
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef size_t usize;
-typedef float f32;
-typedef double f64;
-
-#include <float.h>
 #define F32_MAX FLT_MAX
-#include <limits.h>
 #define U16_MAX USHRT_MAX;
 #define U32_MAX UINT_MAX;
 #define U64_MAX ULONG_MAX;
@@ -26,9 +6,6 @@ typedef double f64;
 #define I32_MAX INT_MAX;
 #define I64_MAX LONG_MAX;
 
-#define global static
-#define local_static static
-#define internal static
 #define ArrayCount(arr) (sizeof((arr)) / (sizeof((arr)[0])))
 #define Kilobytes(number) ((number)*1024ull)
 #define Megabytes(number) (Kilobytes(number) * 1024ull)
@@ -48,37 +25,44 @@ typedef double f64;
 #define OutsideInclusive !InsideExclusive
 
 #ifdef SYNTH_SLOW
-#define Assert(expression)                                                     \
-if(!(expression)) {                                                          \
-*(int *)0 = 0;                                                             \
-}
+    #define Assert(expression) if(!(expression)) { *(int *)0 = 0; }
 #else
-#define Assert(expression)
+    #define Assert(expression)
 #endif
 
 #define Unreachable Assert(!"Unreachable code")
 
-inline f32
-Log2f(f32 n)  
-{
-    return logf( n ) / logf( 2 );  
+inline float Log2f(float n) {    return logf( n ) / logf( 2 );  }
+/*
+static int g_LCG = 4321;
+static inline void seed(int* pLCG, int32 seed) { Assert(pLCG != NULL); g_LCG = seed; }
+static inline int rand_s32(int* pLCG) { g_LCG = (48271 * g_LCG) % 2147483647; }
+static inline unsigned int rand_u32(int* pLCG) { return (unsigned int)rand_s32(pLCG); }
+static inline double rand_f64(int* pLCG) { return rand_s32(pLCG) / (double)0x7FFFFFFF; }
+static inline float rand_f32(int* pLCG) { return (float)rand_f64(pLCG); }
+static inline float scale_to_range_f32(float x, float lo, float hi) { return lo + x * (hi - lo); }
+static inline float rand_range_f32(int* pLCG, float lo, float hi) { return scale_to_range_f32(rand_f32(pLCG), lo, hi); }
+static inline int rand_range_s32(int* pLCG, int lo, int hi) {
+    if (lo == hi) return lo;
+    return lo + rand_u32(pLCG) / (0xFFFFFFFF / (hi - lo + 1) + 1);
 }
+static inline void update_seed(int seed) { seed(&g_LCG, seed); }
+static inline int RandomInt(void) { return rand_s32(&g_LCG); }
+*/
 
-inline u32
-RandomU32(u32 seed)
-{
-    local_static u32 z = 362436069;
-    local_static u32 w = 521288629;
-    local_static u32 jcong = 380116160;
-    local_static u32 jsr = 123456789;
-    u32 z_new = 36969 * ((z+seed) & 65535) + ((z+seed) >> 16);
-    u32 w_new = 18000 * (w & 65535) + (w >> 16);
-    u32 mwc = (z_new << 16) + w_new;
-    u32 jcong_new = 69069 * jcong + 1234567;
-    u32 jsr_new = jsr ^ (jsr << 17);
+inline unsigned int RandomU32(unsigned int seed) {
+    static unsigned int z = 362436069;
+    static unsigned int w = 521288629;
+    static unsigned int jcong = 380116160;
+    static unsigned int jsr = 123456789;
+    unsigned int z_new = 36969 * ((z+seed) & 65535) + ((z + seed) >> 16);
+    unsigned int w_new = 18000 * (w & 65535) + (w >> 16);
+    unsigned int mwc = (z_new << 16) + w_new;
+    unsigned int jcong_new = 69069 * jcong + 1234567;
+    unsigned int jsr_new = jsr ^ (jsr << 17);
     jsr_new ^= (jsr >> 13);
     jsr_new ^= (jsr << 5);
-    u32 result = (mwc ^ jcong_new) + jsr_new;
+    unsigned int result = (mwc ^ jcong_new) + jsr_new;
     z = z_new;
     w = w_new;
     jcong = jcong_new;
@@ -86,11 +70,4 @@ RandomU32(u32 seed)
     return result;
 }
 
-inline f32
-RandomF32(u32 seed)
-{
-    u32 val = RandomU32(seed);
-    return (f32)val / (f32)U32_MAX;
-}
-
-#endif //SYNTH_PLATFORM_H
+static inline float Randomfloat(unsigned int seed) { return (float)RandomU32(seed) / (float)U32_MAX; }
