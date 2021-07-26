@@ -1,5 +1,5 @@
 # coding_a_synth_in_c
-Soruced the initial development from perky and basically made it simpler for my brain to wrap around how that can be integrated into a game engine.
+Sourced the initial development from perky and basically made it simpler for my brain to wrap around how that can be integrated into a game engine.
 
 So basiclaly it was designed to hook up to MIDI only and that requires a makeover.
 
